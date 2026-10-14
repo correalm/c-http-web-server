@@ -69,6 +69,13 @@ static int is_version(const char *s) {
   return 1;
 }
 
+static int is_supported_http_ver(const char *v) {
+  if (strstr(v, "1.0") != NULL || strstr(v, "1.1") != NULL)
+    return 1;
+
+  return 0;
+}
+
 static int is_valid_path(const char *path, const char *method) {
   return path[0] == '/' ||
          (strcmp(path, "*") == 0 && strcmp(method, get_method(OPTIONS)) == 0);
@@ -103,10 +110,15 @@ int main(void) {
       continue;
     }
 
-    if (!is_method_implemented(method))
+    if (!is_method_implemented(method)) {
       log_code(NOT_IMPLEMENTED);
+      continue;
+    }
 
-    // TODO: implement the http version validation
+    if (!is_supported_http_ver(version)) {
+      log_code(HTTP_VERSION_NOT_SUPPORTED);
+      continue;
+    }
 
     log_success(method, path, version);
   }
