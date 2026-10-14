@@ -2,13 +2,56 @@
 #include <stdio.h>
 #include <string.h>
 
-static int is_method(const char *s) {
-  static const char *m[] = {"GET",  "POST",    "PUT",   "DELETE",
-                            "HEAD", "OPTIONS", "PATCH", NULL};
+enum Code {
+  OK = 200,
+  BAD_REQUEST = 400,
+  INTERNAL_SERVER_ERR = 500,
+  NOT_IMPLEMENTED = 501,
+  HTTP_VERSION_NOT_SUPPORTED = 505
+};
+
+enum Method { GET, POST, PUT, DELETE, HEAD, OPTIONS, PATCH };
+
+static const char *get_method(int m) {
+  switch (m) {
+  case GET:
+    return "GET";
+  case POST:
+    return "POST";
+  case PUT:
+    return "PUT";
+  case DELETE:
+    return "DELETE";
+  case HEAD:
+    return "HEAD";
+  case OPTIONS:
+    return "OPTIONS";
+  case PATCH:
+    return "PATCH";
+  default:
+    return NULL;
+  }
+}
+
+static int is_method_implemented(const char *s) {
+  const char *m[] = {get_method(GET),   get_method(POST),
+                     get_method(PUT),   get_method(DELETE),
+                     get_method(HEAD),  get_method(OPTIONS),
+                     get_method(PATCH), NULL};
   for (int i = 0; m[i]; i++)
     if (!strcmp(s, m[i]))
       return 1;
   return 0;
+}
+
+static int is_method(const char *s) {
+  int len = strlen(s);
+  for (int i = 0; i < len; i++) {
+    if (!isupper((unsigned char)s[i]))
+      return 0;
+  }
+
+  return 1;
 }
 
 static int has_version_code(const char *s) {
@@ -24,6 +67,17 @@ static int is_version(const char *s) {
     return 0;
 
   return 1;
+}
+
+static int is_valid_path(const char *path, const char *method) {
+  return path[0] == '/' ||
+         (strcmp(path, "*") == 0 && strcmp(method, get_method(OPTIONS)) == 0);
+}
+
+static void log_code(int code) { printf("%d\n", code); }
+
+static void log_success(const char *p, const char *m, const char *v) {
+  printf("OK %s %s %s\n", p, m, v);
 }
 
 int main(void) {
@@ -43,13 +97,19 @@ int main(void) {
 
     int has_bad_space = ((b - a) + (d - c)) != 2;
 
-    if (n != 3 || has_bad_space || !is_method(method) || path[0] != '/' ||
-        !is_version(version)) {
-      puts("INVALID");
+    if (n != 3 || has_bad_space || !is_method(method) ||
+        !is_valid_path(path, method) || !is_version(version)) {
+      log_code(BAD_REQUEST);
       continue;
     }
 
-    printf("METHOD=%s PATH=%s VERSION=%s\n", method, path, version);
+    if (!is_method_implemented(method))
+      log_code(NOT_IMPLEMENTED);
+
+    // TODO: implement the http version validation
+
+    log_success(method, path, version);
   }
+
   return 0;
 }
